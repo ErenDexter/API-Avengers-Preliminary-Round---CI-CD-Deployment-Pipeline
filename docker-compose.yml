@@ -1,0 +1,29 @@
+services:
+  docker:
+    image: docker:24-dind
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+    volumes:
+      - docker-data:/var/lib/docker
+    ports:
+      - "2375:2375"
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      - DOCKER_HOST=tcp://docker:2375
+    depends_on:
+      - docker
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - ./app:/var/jenkins_home/workspace/app:rw
+
+volumes:
+  docker-data:
+  jenkins_home:
+
