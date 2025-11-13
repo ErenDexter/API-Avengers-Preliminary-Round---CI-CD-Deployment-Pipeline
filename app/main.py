@@ -1,4 +1,3 @@
-# app/app.py
 from fastapi import FastAPI, Response
 import uvicorn
 

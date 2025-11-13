@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    environment {
+        APP_IMAGE = "demo-app:${env.BUILD_NUMBER ?: 'local'}"
+        DOCKER_COMPOSE_FILE = "docker-compose.yml"
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -8,38 +13,45 @@ pipeline {
             }
         }
 
+        stage('Setup') {
+            steps {
+                echo 'Setting up Python dependencies for tests (virtual env)...'
+                sh 'python -V || true'
+            }
+        }
+
         stage('Build') {
             steps {
-                echo 'Building application (simple syntax check)...'
+                echo 'Running syntax check...'
                 sh 'python -m py_compile app/main.py'
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Running mock unit tests...'
-                sh 'python app/test.py'
+                echo 'Running unit tests (mock tests)...'
+                sh 'python -m unittest discover -v app'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Package (Docker)') {
             steps {
-                echo 'Building Docker image...'
-                sh 'docker build -t app:latest .'
+                echo "Building Docker image ${APP_IMAGE}..."
+                sh "docker build -t ${APP_IMAGE} ."
             }
         }
 
-        stage('Deploy with Docker Compose') {
+        stage('Deploy') {
             steps {
-                echo 'Starting application via docker-compose...'
-                sh 'docker-compose up -d'
+                echo 'Deploying application with docker-compose...'
+                sh "docker-compose -f ${DOCKER_COMPOSE_FILE} up -d --build app"
             }
         }
 
         stage('Health Check') {
             steps {
-                echo 'Running healthcheck script...'
-                sh 'chmod +x healthcheck.sh'
+                echo 'Verifying container health...'
+                sh 'chmod +x healthcheck.sh || true'
                 sh './healthcheck.sh'
             }
         }
@@ -47,7 +59,7 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up containers...'
+            echo 'Cleaning up (docker-compose down)'
             sh 'docker-compose down || true'
         }
     }
